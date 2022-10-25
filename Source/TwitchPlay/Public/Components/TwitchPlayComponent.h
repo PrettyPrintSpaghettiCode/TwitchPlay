@@ -13,6 +13,7 @@
  * _sender_username (const FString&) - Username of who triggered the command.
  */
 DECLARE_DYNAMIC_DELEGATE_ThreeParams(FOnCommandReceived, const FString&, _command_name, const TArray<FString>&, _command_options, const FString&, _sender_username);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FOnSingleCommandReceived, const FString&, _command_name, const FString&, _command_options, const FString&, _sender_username);
 
 
 /**
@@ -53,6 +54,7 @@ private:
 	 * TODO: Unbind all events on component destruction? I don't know if it would generate memory leaks if not done
 	 */
 	TMap<FString, FOnCommandReceived> bound_events_;
+	TMap<FString, FOnSingleCommandReceived> bound_events_single_;
 
 public:
 
@@ -129,4 +131,20 @@ private:
 	*
 	*/
 	void GetCommandOptionsStrings(const FString& _message, TArray<FString>& optionsOut) const;
+
+
+	UFUNCTION()
+	void CommandReceivedHandler(const FString& _message, const FString& _username);
+
+	/**
+	 * Parses the message and returns any command and command options associated with the message.
+	 * Valid command-message format: "<delimiter>command message"
+	 *
+	 * @param _in_string - The message to parse.
+	 * @param _out_message - The array of options found, if any. Returns an empty array if no command option was found.
+	 * @param _delimiter - The delimiter to identify start of command.
+	 *
+	 * @return The command found, if any. Returns "" if no command was found.
+	 */
+	FString GetSingleDelimitedString(const FString & _in_string, TArray<FString> & _out_message, const FString & _delimiter) const;
 };

@@ -3,6 +3,7 @@
 #define DEBUG_MSG(msg) GEngine->AddOnScreenDebugMessage( -1 , 6 , FColor::Red , msg ) 
 
 #include "Components/TwitchPlayComponent.h"
+#include "Kismet/KismetStringLibrary.h"
 
 UTwitchPlayComponent::UTwitchPlayComponent()
 {
@@ -68,6 +69,7 @@ bool UTwitchPlayComponent::UnregisterCommand(const FString& _command_name, FStri
 
 void UTwitchPlayComponent::MessageReceivedHandler(const FString & _message, const FString & _username)
 {
+#if 0
 	const FString command = GetCommandString(_message);
 
 	// No reason to search for the command in the event map, there isn't any
@@ -86,6 +88,9 @@ void UTwitchPlayComponent::MessageReceivedHandler(const FString & _message, cons
 		GetCommandOptionsStrings(_message, command_options);
 		registered_command->ExecuteIfBound(command, command_options, _username);
 	}
+#else
+	CommandReceivedHandler(_message, _username);
+#endif
 }
 
 FString GetDelimitedString(const FString & _in_string, const FString & _delimiter)
@@ -134,4 +139,57 @@ void UTwitchPlayComponent::GetCommandOptionsStrings(const FString & _message, TA
 {
 	const FString options = GetDelimitedString(_message, options_encapsulation_char_);
 	options.ParseIntoArray(optionsOut, TEXT(","));
+}
+
+void UTwitchPlayComponent::CommandReceivedHandler(const FString & _message, const FString & _username)
+{
+	TArray<FString> command_options;
+	const FString command = GetSingleDelimitedString(_message, command_options, command_encapsulation_char_);
+
+	// No reason to search for the command in the event map, there isn't any
+	if (command.IsEmpty())
+	{
+		return;
+	}
+
+	FOnCommandReceived* registered_command = bound_events_.Find(command);
+
+	// If the command was registered proceed with finding any command options
+	// Then fire the event
+	if (registered_command != nullptr)
+	{
+		registered_command->ExecuteIfBound(command, command_options, _username);
+	}
+}
+
+FString UTwitchPlayComponent::GetSingleDelimitedString(const FString & _in_string, TArray<FString> & _out_message, const FString & _delimiter) const
+{
+	// No delimited string can be found on an empty string
+	if (_in_string.IsEmpty())
+	{
+		return { TEXT("") };
+	}
+
+	// Split into string array delimited by space
+	TArray<FString> parsed_string;
+	parsed_string = UKismetStringLibrary::ParseIntoArray(_in_string, TEXT(" "), true);
+
+	// First array should contain the command
+	const int32 command_start_index = parsed_string[0].Find(_delimiter);
+
+	// If the message did not contain any start delimiter no command can be found
+	if (command_start_index == INDEX_NONE)
+	{
+		return { TEXT("") };
+	}
+
+	// Ouput the message
+	if (parsed_string.Num() > 1)
+	{
+		_out_message.Append(&parsed_string[1], parsed_string.Num() - 1);
+	}
+
+	// return the command
+	parsed_string[0] = parsed_string[0].Mid(command_start_index + _delimiter.Len(), parsed_string[0].Len() - _delimiter.Len());
+	return parsed_string[0];
 }
